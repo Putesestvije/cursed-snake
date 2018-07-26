@@ -3,7 +3,7 @@
 CC=cc
 CFLAGS=  -O3 
 OBJECTS= snake.o 
-LIBS += -lpthread
+LIBS += -lpthread -lncurses
 
 
 # --- targets

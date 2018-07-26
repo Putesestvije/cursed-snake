@@ -77,7 +77,7 @@ pthread_mutex_t dir_mutex;
 static snake_piece *snake, *head, *tail;
 
 static char* playing_field[FIELD_HEIGHT][FIELD_WIDTH];
-
+/*
 static char *head_up_tile = "\x1b[1;33m◼\x1b[0m";
 static char *head_down_tile = "\x1b[1;33m◼\x1b[0m";
 static char *head_left_tile = "\x1b[1;33m◼\x1b[0m";
@@ -85,8 +85,8 @@ static char *head_right_tile = "\x1b[1;33m◼\x1b[0m";
 static char *body_tile = "\x1b[1;32m◼\x1b[0m";
 static char *apple_tile = "\x1b[1;31mO\x1b[0m";
 static char *empty_tile = ".";
+*/
 
-/*
 static char *head_up_tile = "#";
 static char *head_down_tile = "#";
 static char *head_left_tile = "#";
@@ -94,12 +94,14 @@ static char *head_right_tile = "#";
 static char *body_tile = "#";
 static char *apple_tile = "O";
 static char *empty_tile = ".";
-*/
+
 
 static unsigned int base_wait = 100000;
 
 static int curr_score = 0;
 static float speed_factor = 1.0f;
+
+int direction_changed = 0;
 
 
 void prepare_game();
@@ -124,6 +126,9 @@ void init_input_handling();
 void* process_input();
 void stop_input_processing();
 int clashing_direction(directions new_dir);
+void draw_ui();
+
+void prepare_log();
 
 int main()
 {
@@ -138,14 +143,15 @@ int main()
 
 void prepare_game()
 {
-	//mode_raw(0);
+	prepare_log();
+	
 	srand(time(NULL));
 	
-	printf("Preparing\n");
+	direction_changed = 1;
+	//printf("Preparing\n");
 	init_snake();
 	make_apple();
 	place_apple();
-	
 	prepare_field();
 	draw_field();
 	
@@ -216,6 +222,9 @@ void clear_game()
 	clear_snake();
 	clear_apple();
 	stop_input_processing();
+	nocbreak();
+	echo();
+	endwin();
 }
 
 void clear_snake()
@@ -272,7 +281,9 @@ void make_apple()
 void prepare_field()
 {
 	int i, j;
-	
+	initscr();
+	cbreak();
+	noecho();
 	for (i = 0; i < FIELD_HEIGHT; i++)
 		for (j = 0; j < FIELD_WIDTH; j++)
 			playing_field[i][j] = empty_tile;
@@ -303,11 +314,14 @@ void play_game()
 {	
 	char placeholder;
 	int count = 0;
-	scanf("%c", &placeholder);
+	//scanf("%c", &placeholder);
+	getch();
 	while(game_state != END){
 		
 		move_snake();
 		draw_field();
+		draw_ui();
+		refresh();
 		//TODO iscrtavanje i treda za input
 		usleep((unsigned int)(base_wait));
 	}
@@ -317,10 +331,21 @@ void move_snake()
 {
 	position next_pos = getNextPosition();
 	snake_piece *new_head = NULL, *new_tail = NULL;
+	int sem_val;
+	
 	
 	if (ate_itself(next_pos)){
+		//printf("MOTHAFUCKA\n");
 		//end the game and print out the message optionally
 		//for now this is the way we exit
+		mvprintw(FIELD_HEIGHT/2-1, FIELD_WIDTH/2 - 8, "               ");
+		mvprintw(FIELD_HEIGHT/2,   FIELD_WIDTH/2 - 8, "   GAME OVER   ");
+		mvprintw(FIELD_HEIGHT/2+1, FIELD_WIDTH/2 - 8, "               ");
+		refresh();
+		getch();
+		nocbreak();
+		echo();
+		endwin();
 		exit(0);
 	}
 	else {
@@ -342,12 +367,17 @@ void move_snake()
 			place_apple();
 			playing_field[curr_apple->pos.y][curr_apple->pos.x] = apple_tile;
 			curr_score++;
-			speed_factor *= 1.1f;
 			base_wait -= 1000;
 			
 		}
 	}
 	update_snake_position(new_head, new_tail);
+	
+	sem_getvalue(&input_sem, &sem_val);
+	if(sem_val < 1)
+		sem_post(&input_sem);
+	else 
+		mvprintw(FIELD_HEIGHT, 2, "%d", sem_val);
 	
 	//if we moved the tail and updated how the snake looks we can
 	//free up the old tail piece
@@ -421,44 +451,52 @@ void update_snake_position(snake_piece *new_head, snake_piece *new_tail)
 void draw_field()
 {
 	int i, j;
-	for(i = 0; i < 50; i++)
-		printf("\n");
 		
 	for (i = 0; i < FIELD_HEIGHT; i++){
 		for (j = 0;  j < FIELD_WIDTH; j++)
-			printf("%s", playing_field[i][j]);
+			mvprintw(i, j, "%s", playing_field[i][j]);
+			//printf("%s", playing_field[i][j]);
 			//write(1, playing_field[i][j], strlen(playing_field[i][j]));
-		printf("\n");
 	}
 }
 
 void init_input_handling()
 {
+	int sem_val;
 	
-	//initscr();
-	//sem_init(input_sem, /*int pshared*/0, 1);
-	setvbuf(stdin, NULL, _IONBF, 0);
-	printf("enter input init\n");
+	sem_init(&input_sem, 0, 0);
+	
 	pthread_mutex_init(&dir_mutex, NULL);
-	
 	pthread_create(&input_t, NULL, process_input, NULL);
 }
 
 void* process_input()
 {
-	
-	printf("process_input\n");
-	int i;
+	int i, sem_val;
 	char d;
 	directions new_dir;
 	
 	while(1){
-		//printf("processing\nprocessing\nprocessing\nprocessing\nprocessing\nprocessing\nprocessing\n");
-		d = getc(stdin);
-		fputc('\n', stdin);
-		fflush(stdin);
+		mvprintw(FIELD_HEIGHT, FIELD_WIDTH + 1, "waiting input");
+		mvprintw(FIELD_HEIGHT + 1, FIELD_WIDTH + 1, "              ");
+		
+		sem_getvalue(&input_sem, &sem_val);
+		mvprintw(FIELD_HEIGHT + 3, 0, "pre prvog wait %d\n", sem_val);
+		
+		
+		sem_wait(&input_sem);
+		
+		
+		
+		sem_getvalue(&input_sem, &sem_val);
+		mvprintw(FIELD_HEIGHT+4, 0, "pre drugog wait %d\n", sem_val);
+		//sem_wait(&input_sem);
+		
+		/*mvprintw(FIELD_HEIGHT, FIELD_WIDTH+1, "             ");
+		mvprintw(FIELD_HEIGHT+1, FIELD_WIDTH+1, "done waiting");
+		refresh();*/
+		d = getch();
 		if(d != -1){
-			//fprintf(stderr, "nasao %c\n", d);
 			switch(d){
 				case 'w':
 					new_dir = UP;
@@ -478,9 +516,9 @@ void* process_input()
 			if(!clashing_direction(new_dir)){
 				pthread_mutex_lock(&dir_mutex);
 				direction = new_dir;
+				draw_ui();
 				pthread_mutex_unlock(&dir_mutex);
 			}
-			//pthread_exit(NULL);
 		}
 	}
 }
@@ -512,4 +550,35 @@ int clashing_direction(directions new_dir)
 		return 1;
 	
 	return 0;
+}
+
+void draw_ui()
+{
+	char d;
+	
+	switch(direction){
+		case UP:
+			d = 'w';
+			break;
+		case DOWN :
+			d = 's';
+			break;
+		case RIGHT :
+			d = 'd';
+			break;
+		case LEFT :
+			d = 'a';
+			break;
+		default :
+			d = '?';
+			break;
+	}
+	
+	mvprintw(FIELD_HEIGHT, 0, "%c", d);
+	refresh();
+}
+
+void prepare_log()
+{
+	
 }
