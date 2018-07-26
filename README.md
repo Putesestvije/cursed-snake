@@ -1,0 +1,2 @@
+# cursed-snake
+just snek
