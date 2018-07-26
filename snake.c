@@ -313,8 +313,10 @@ void prepare_field()
 void play_game()
 {	
 	char placeholder;
-	int count = 0;
-	//scanf("%c", &placeholder);
+	int count = 0, sem_val;
+	
+	draw_field();
+	draw_ui();
 	getch();
 	while(game_state != END){
 		
@@ -322,8 +324,14 @@ void play_game()
 		draw_field();
 		draw_ui();
 		refresh();
-		//TODO iscrtavanje i treda za input
-		usleep((unsigned int)(base_wait));
+		
+		sem_getvalue(&input_sem, &sem_val);
+		if(sem_val < 1)
+			sem_post(&input_sem);
+		else 
+			mvprintw(FIELD_HEIGHT, 2, "%d", sem_val);
+		
+		usleep((unsigned int)(2000000));
 	}
 }
 
@@ -373,12 +381,12 @@ void move_snake()
 	}
 	update_snake_position(new_head, new_tail);
 	
-	sem_getvalue(&input_sem, &sem_val);
+	/*sem_getvalue(&input_sem, &sem_val);
 	if(sem_val < 1)
 		sem_post(&input_sem);
 	else 
 		mvprintw(FIELD_HEIGHT, 2, "%d", sem_val);
-	
+	*/
 	//if we moved the tail and updated how the snake looks we can
 	//free up the old tail piece
 	if(new_tail != NULL){
@@ -492,9 +500,9 @@ void* process_input()
 		mvprintw(FIELD_HEIGHT+4, 0, "pre drugog wait %d\n", sem_val);
 		//sem_wait(&input_sem);
 		
-		/*mvprintw(FIELD_HEIGHT, FIELD_WIDTH+1, "             ");
+		mvprintw(FIELD_HEIGHT, FIELD_WIDTH+1, "             ");
 		mvprintw(FIELD_HEIGHT+1, FIELD_WIDTH+1, "done waiting");
-		refresh();*/
+		refresh();
 		d = getch();
 		if(d != -1){
 			switch(d){
@@ -516,8 +524,8 @@ void* process_input()
 			if(!clashing_direction(new_dir)){
 				pthread_mutex_lock(&dir_mutex);
 				direction = new_dir;
-				draw_ui();
 				pthread_mutex_unlock(&dir_mutex);
+				draw_ui();
 			}
 		}
 	}
@@ -526,10 +534,7 @@ void* process_input()
 void stop_input_processing()
 {
 	pthread_join(input_t, NULL);
-	
-	printf("trying to unlock\n");
 	pthread_mutex_unlock(&dir_mutex);
-	printf("unlocked!\n");
 	pthread_mutex_destroy(&dir_mutex);
 	
 }
@@ -555,6 +560,9 @@ int clashing_direction(directions new_dir)
 void draw_ui()
 {
 	char d;
+	int sem_val;
+	
+	sem_getvalue(&input_sem, &sem_val);
 	
 	switch(direction){
 		case UP:
@@ -574,7 +582,7 @@ void draw_ui()
 			break;
 	}
 	
-	mvprintw(FIELD_HEIGHT, 0, "%c", d);
+	mvprintw(FIELD_HEIGHT, 0, "%c, and semaphore at time %d", d, sem_val);
 	refresh();
 }
 
