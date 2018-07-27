@@ -11,8 +11,8 @@
 #include <string.h>
 
 
-#define FIELD_WIDTH 80
-#define FIELD_HEIGHT 50
+#define FIELD_WIDTH 40
+#define FIELD_HEIGHT 25
 #define MAX_SCORE (FIELD_HEIGHT * FIELD_HEIGHT)
 
 typedef struct _position {
@@ -326,12 +326,14 @@ void play_game()
 		refresh();
 		
 		sem_getvalue(&input_sem, &sem_val);
-		if(sem_val < 1)
+		if(sem_val < 1){
+			mvprintw(FIELD_HEIGHT+5, 0, "the value of semaphore right before post is %d", sem_val);
 			sem_post(&input_sem);
+		}
 		else 
 			mvprintw(FIELD_HEIGHT, 2, "%d", sem_val);
 		
-		usleep((unsigned int)(2000000));
+		usleep((unsigned int)(base_wait));
 	}
 }
 
@@ -380,13 +382,6 @@ void move_snake()
 		}
 	}
 	update_snake_position(new_head, new_tail);
-	
-	/*sem_getvalue(&input_sem, &sem_val);
-	if(sem_val < 1)
-		sem_post(&input_sem);
-	else 
-		mvprintw(FIELD_HEIGHT, 2, "%d", sem_val);
-	*/
 	//if we moved the tail and updated how the snake looks we can
 	//free up the old tail piece
 	if(new_tail != NULL){
@@ -483,27 +478,13 @@ void* process_input()
 	int i, sem_val;
 	char d;
 	directions new_dir;
-	
+	sem_wait(&input_sem);
 	while(1){
-		mvprintw(FIELD_HEIGHT, FIELD_WIDTH + 1, "waiting input");
-		mvprintw(FIELD_HEIGHT + 1, FIELD_WIDTH + 1, "              ");
-		
-		sem_getvalue(&input_sem, &sem_val);
-		mvprintw(FIELD_HEIGHT + 3, 0, "pre prvog wait %d\n", sem_val);
-		
-		
-		sem_wait(&input_sem);
-		
-		
-		
-		sem_getvalue(&input_sem, &sem_val);
-		mvprintw(FIELD_HEIGHT+4, 0, "pre drugog wait %d\n", sem_val);
-		//sem_wait(&input_sem);
-		
-		mvprintw(FIELD_HEIGHT, FIELD_WIDTH+1, "             ");
-		mvprintw(FIELD_HEIGHT+1, FIELD_WIDTH+1, "done waiting");
-		refresh();
 		d = getch();
+		sem_wait(&input_sem);
+		sem_getvalue(&input_sem, &sem_val);
+		mvprintw(FIELD_HEIGHT+4, 0, "we exit the wait and the sem value is %d\n", sem_val);
+		refresh();
 		if(d != -1){
 			switch(d){
 				case 'w':

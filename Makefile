@@ -1,4 +1,4 @@
-# Makefile to build monte_pi_sprng program
+# Makefile to build snake
 # --- macros
 CC=cc
 CFLAGS=  -O3 
