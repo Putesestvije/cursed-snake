@@ -127,6 +127,7 @@ void* process_input();
 void stop_input_processing();
 int clashing_direction(directions new_dir);
 void draw_ui();
+void get_new_direction();
 
 void prepare_log();
 
@@ -339,6 +340,7 @@ void play_game()
 
 void move_snake()
 {
+	get_new_direction();
 	position next_pos = getNextPosition();
 	snake_piece *new_head = NULL, *new_tail = NULL;
 	int sem_val;
@@ -352,6 +354,7 @@ void move_snake()
 		mvprintw(FIELD_HEIGHT/2,   FIELD_WIDTH/2 - 8, "   GAME OVER   ");
 		mvprintw(FIELD_HEIGHT/2+1, FIELD_WIDTH/2 - 8, "               ");
 		refresh();
+		nodelay(stdscr, 0);
 		getch();
 		nocbreak();
 		echo();
@@ -458,29 +461,23 @@ void draw_field()
 	for (i = 0; i < FIELD_HEIGHT; i++){
 		for (j = 0;  j < FIELD_WIDTH; j++)
 			mvprintw(i, j, "%s", playing_field[i][j]);
-			//printf("%s", playing_field[i][j]);
-			//write(1, playing_field[i][j], strlen(playing_field[i][j]));
 	}
 }
 
 void init_input_handling()
 {
-	int sem_val;
-	
-	sem_init(&input_sem, 0, 0);
-	
-	pthread_mutex_init(&dir_mutex, NULL);
-	pthread_create(&input_t, NULL, process_input, NULL);
+	nodelay(stdscr, 1);
+	keypad(stdscr, 1);
 }
 
 void* process_input()
 {
 	int i, sem_val;
-	char d;
+	int d;
 	directions new_dir;
 	sem_wait(&input_sem);
 	while(1){
-		d = getch();
+		d = wgetch(stdscr);
 		sem_wait(&input_sem);
 		sem_getvalue(&input_sem, &sem_val);
 		mvprintw(FIELD_HEIGHT+4, 0, "we exit the wait and the sem value is %d\n", sem_val);
@@ -488,15 +485,19 @@ void* process_input()
 		if(d != -1){
 			switch(d){
 				case 'w':
+				case KEY_UP :
 					new_dir = UP;
 					break;
 				case 'a' :
+				case KEY_LEFT :
 					new_dir = LEFT;
 					break;
 				case 's' :
+				case KEY_DOWN :
 					new_dir = DOWN;
 					break;
 				case 'd' :
+				case KEY_RIGHT :
 					new_dir = RIGHT;
 					break;
 				default :
@@ -514,17 +515,13 @@ void* process_input()
 
 void stop_input_processing()
 {
-	pthread_join(input_t, NULL);
-	pthread_mutex_unlock(&dir_mutex);
-	pthread_mutex_destroy(&dir_mutex);
 	
 }
 
 int clashing_direction(directions new_dir)
 {
-	pthread_mutex_lock(&dir_mutex);
+	
 	directions old_dir = direction;
-	pthread_mutex_unlock(&dir_mutex);
 	
 	if((new_dir == UP) && (old_dir == DOWN))
 		return 1;
@@ -570,4 +567,39 @@ void draw_ui()
 void prepare_log()
 {
 	
+}
+
+void get_new_direction() 
+{
+	int d;
+	
+	d = getch();
+	directions new_dir;
+	
+	if (d != ERR){
+		switch(d){
+				case 'w':
+				case KEY_UP :
+					new_dir = UP;
+					break;
+				case 'a' :
+				case KEY_LEFT :
+					new_dir = LEFT;
+					break;
+				case 's' :
+				case KEY_DOWN :
+					new_dir = DOWN;
+					break;
+				case 'd' :
+				case KEY_RIGHT :
+					new_dir = RIGHT;
+					break;
+				default :
+					break;
+		}
+		if(!clashing_direction(new_dir)){
+			direction = new_dir;
+			draw_ui();
+		}
+	}
 }
