@@ -123,7 +123,6 @@ void move_snake();
 position getNextPosition();
 
 void init_input_handling();
-void* process_input();
 void stop_input_processing();
 int clashing_direction(directions new_dir);
 void draw_ui();
@@ -167,7 +166,7 @@ void init_snake()
 	tail = malloc(sizeof(snake_piece));	
 	
 	
-	/* we could go on and on through phislosophical discussion about what 
+	/* we could go on and on through philosophical discussion about what 
 	 * should be the next and what should be the previous piece of a snake
 	 * but I randomly chose to do it like this so I will stick with it*/ 
 	head->next_piece = tail;
@@ -222,10 +221,10 @@ void clear_game()
 {
 	clear_snake();
 	clear_apple();
-	stop_input_processing();
+	/*stop_input_processing();
 	nocbreak();
 	echo();
-	endwin();
+	endwin();*/
 }
 
 void clear_snake()
@@ -326,13 +325,13 @@ void play_game()
 		draw_ui();
 		refresh();
 		
-		sem_getvalue(&input_sem, &sem_val);
+		/*sem_getvalue(&input_sem, &sem_val);
 		if(sem_val < 1){
 			mvprintw(FIELD_HEIGHT+5, 0, "the value of semaphore right before post is %d", sem_val);
 			sem_post(&input_sem);
 		}
 		else 
-			mvprintw(FIELD_HEIGHT, 2, "%d", sem_val);
+			mvprintw(FIELD_HEIGHT, 2, "%d", sem_val);*/
 		
 		usleep((unsigned int)(base_wait));
 	}
@@ -344,7 +343,7 @@ void move_snake()
 	position next_pos = getNextPosition();
 	snake_piece *new_head = NULL, *new_tail = NULL;
 	int sem_val;
-	
+	char a;
 	
 	if (ate_itself(next_pos)){
 		//printf("MOTHAFUCKA\n");
@@ -356,6 +355,22 @@ void move_snake()
 		refresh();
 		nodelay(stdscr, 0);
 		getch();
+		mvprintw(FIELD_HEIGHT/2-1, FIELD_WIDTH/2 - 8, "               ");
+		mvprintw(FIELD_HEIGHT/2,   FIELD_WIDTH/2 - 8, "  Play again?  ");
+		mvprintw(FIELD_HEIGHT/2+1, FIELD_WIDTH/2 - 8, "     Y/N       ");
+		refresh();
+		nodelay(stdscr, 0);
+		a = getch();
+		while (a != 'y' && a != 'Y' && a != 'n' && a != 'N'){
+			a = getch();
+		}
+		
+		if (a == 'y' || a== 'Y'){
+			clear_game();
+			prepare_game();
+			return;
+		}
+		
 		nocbreak();
 		echo();
 		endwin();
@@ -470,49 +485,6 @@ void init_input_handling()
 	keypad(stdscr, 1);
 }
 
-void* process_input()
-{
-	int i, sem_val;
-	int d;
-	directions new_dir;
-	sem_wait(&input_sem);
-	while(1){
-		d = wgetch(stdscr);
-		sem_wait(&input_sem);
-		sem_getvalue(&input_sem, &sem_val);
-		mvprintw(FIELD_HEIGHT+4, 0, "we exit the wait and the sem value is %d\n", sem_val);
-		refresh();
-		if(d != -1){
-			switch(d){
-				case 'w':
-				case KEY_UP :
-					new_dir = UP;
-					break;
-				case 'a' :
-				case KEY_LEFT :
-					new_dir = LEFT;
-					break;
-				case 's' :
-				case KEY_DOWN :
-					new_dir = DOWN;
-					break;
-				case 'd' :
-				case KEY_RIGHT :
-					new_dir = RIGHT;
-					break;
-				default :
-					break;
-			}
-			if(!clashing_direction(new_dir)){
-				pthread_mutex_lock(&dir_mutex);
-				direction = new_dir;
-				pthread_mutex_unlock(&dir_mutex);
-				draw_ui();
-			}
-		}
-	}
-}
-
 void stop_input_processing()
 {
 	
@@ -538,7 +510,7 @@ int clashing_direction(directions new_dir)
 void draw_ui()
 {
 	char d;
-	int sem_val;
+	/*int sem_val;
 	
 	sem_getvalue(&input_sem, &sem_val);
 	
@@ -560,7 +532,7 @@ void draw_ui()
 			break;
 	}
 	
-	mvprintw(FIELD_HEIGHT, 0, "%c, and semaphore at time %d", d, sem_val);
+	mvprintw(FIELD_HEIGHT, 0, "%c, and semaphore at time %d", d, sem_val);*/
 	refresh();
 }
 
