@@ -96,12 +96,16 @@ static char *apple_tile = "O";
 static char *empty_tile = ".";
 
 
-static unsigned int base_wait = 100000;
+static const unsigned int base_sleep = 100000;
+static unsigned int curr_sleep;
 
-static int curr_score = 0;
+static unsigned int high_score = 0;
+static unsigned int curr_score = 0;
 static float speed_factor = 1.0f;
 
 int direction_changed = 0;
+
+
 
 
 void prepare_game();
@@ -129,6 +133,7 @@ void draw_ui();
 void get_new_direction();
 
 void prepare_log();
+void clear_ui();
 
 int main()
 {
@@ -143,12 +148,19 @@ int main()
 
 void prepare_game()
 {
-	prepare_log();
+	speed_factor = 1.0f;
 	
+	if (curr_score > high_score) {
+		high_score = curr_score;
+	}
+	
+	curr_score = 0;
+	curr_sleep = base_sleep;
+	
+	prepare_log();
 	srand(time(NULL));
 	
 	direction_changed = 1;
-	//printf("Preparing\n");
 	init_snake();
 	make_apple();
 	place_apple();
@@ -221,10 +233,8 @@ void clear_game()
 {
 	clear_snake();
 	clear_apple();
-	/*stop_input_processing();
-	nocbreak();
-	echo();
-	endwin();*/
+	clear_ui();
+	
 }
 
 void clear_snake()
@@ -325,15 +335,7 @@ void play_game()
 		draw_ui();
 		refresh();
 		
-		/*sem_getvalue(&input_sem, &sem_val);
-		if(sem_val < 1){
-			mvprintw(FIELD_HEIGHT+5, 0, "the value of semaphore right before post is %d", sem_val);
-			sem_post(&input_sem);
-		}
-		else 
-			mvprintw(FIELD_HEIGHT, 2, "%d", sem_val);*/
-		
-		usleep((unsigned int)(base_wait));
+		usleep((unsigned int)(curr_sleep));
 	}
 }
 
@@ -346,7 +348,6 @@ void move_snake()
 	char a;
 	
 	if (ate_itself(next_pos)){
-		//printf("MOTHAFUCKA\n");
 		//end the game and print out the message optionally
 		//for now this is the way we exit
 		mvprintw(FIELD_HEIGHT/2-1, FIELD_WIDTH/2 - 8, "               ");
@@ -395,7 +396,7 @@ void move_snake()
 			place_apple();
 			playing_field[curr_apple->pos.y][curr_apple->pos.x] = apple_tile;
 			curr_score++;
-			base_wait -= 1000;
+			curr_sleep -= 1000;
 			
 		}
 	}
@@ -510,7 +511,7 @@ int clashing_direction(directions new_dir)
 void draw_ui()
 {
 	char d;
-	/*int sem_val;
+	int sem_val;
 	
 	sem_getvalue(&input_sem, &sem_val);
 	
@@ -531,8 +532,9 @@ void draw_ui()
 			d = '?';
 			break;
 	}
-	
-	mvprintw(FIELD_HEIGHT, 0, "%c, and semaphore at time %d", d, sem_val);*/
+	//mvprintw(FIELD_HEIGHT, 0, "%c, and semaphore at time %d", d, sem_val);
+	mvprintw(FIELD_HEIGHT, 0, "Current score: %u", curr_score);
+	mvprintw(FIELD_HEIGHT + 1, 0, "High score: %u", high_score);
 	refresh();
 }
 
@@ -574,4 +576,9 @@ void get_new_direction()
 			draw_ui();
 		}
 	}
+}
+
+void clear_ui()
+{
+	mvprintw(FIELD_HEIGHT, 0, "Current score: 0           ");
 }
